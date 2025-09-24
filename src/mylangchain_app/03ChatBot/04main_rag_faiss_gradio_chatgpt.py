@@ -4,15 +4,15 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-UPSTAGE_API_KEY = os.getenv("UPSTAGE_API_KEY")
-print(UPSTAGE_API_KEY[30:])
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+print(OPENAI_API_KEY[30:])
 
 # API 키 검증
-if not UPSTAGE_API_KEY:
-    raise ValueError("UPSTAGE_API_KEY가 설정되지 않았습니다. .env 파일을 확인해주세요.")
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다. .env 파일을 확인해주세요.")
 
 # langchain 패키지
-from langchain_upstage import UpstageEmbeddings, ChatUpstage
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 import gradio as gr
 
@@ -54,7 +54,7 @@ def load_pdf_to_vector_store(pdf_file, chunk_size=1000, chunk_overlap=100):
         print(f"총 {len(splits)}개 청크로 분할됨")
 
         # 임베딩 모델 생성
-        embeddings = UpstageEmbeddings(model="solar-embedding-1-large")
+        embeddings = OpenAIEmbeddings(api_key=OPENAI_API_KEY, model="text-embedding-3-small")
         
         # FAISS 벡터 저장소 생성 (배치 처리 불필요)
         print("FAISS 벡터 저장소 생성 중...")
@@ -88,7 +88,7 @@ def retrieve_and_generate_answers(vectorstore, message, temperature=0.5):
         {context}
         </문맥>
 
-        질문: {question}
+        질문: {input}
 
         답변 규칙:
         1. 문서 내용만을 근거로 답변하세요
@@ -100,14 +100,15 @@ def retrieve_and_generate_answers(vectorstore, message, temperature=0.5):
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_template),
-            ("human", "{question}")
+            ("human", "{input}")
         ])
 
         # ChatModel 인스턴스 생성
-        model = ChatUpstage(
-                model="solar-pro",
-                base_url="https://api.upstage.ai/v1",
-                temperature=float(temperature),
+        model = ChatOpenAI(
+            #model='gpt-4o-mini', 
+            model='gpt-3.5-turbo', 
+            temperature=float(temperature),
+            api_key=OPENAI_API_KEY
         )
 
         # Prompt와 ChatModel을 Chain으로 연결
@@ -117,7 +118,7 @@ def retrieve_and_generate_answers(vectorstore, message, temperature=0.5):
         rag_chain = create_retrieval_chain(retriever, document_chain)
 
         # 검색 결과를 바탕으로 답변 생성
-        response = rag_chain.invoke({'question': message})
+        response = rag_chain.invoke({'input': message})
 
         return response['answer']
         
@@ -226,9 +227,9 @@ def create_interface():
             )
             
             # 채팅 히스토리에 추가
-            #chat_history.append((message, bot_message))
-            chat_history.append({"role": "user", "content": message})  # 사용자 메시지 추가
-            chat_history.append({"role": "assistant", "content": bot_message})  # 봇 응답 추가
+            chat_history.append((message, bot_message))
+            # chat_history.append({"role": "user", "content": message})  # 사용자 메시지 추가
+            # chat_history.append({"role": "assistant", "content": bot_message})  # 봇 응답 추가
 
             return chat_history, ""
         
