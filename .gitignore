@@ -1,2 +1,2 @@
 .env
-db/**
+src/mylangchain_app/db/*
